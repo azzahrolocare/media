@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sensor Jari Peace + Musik Detik 25 (Sal Priadi)</title>
+    <title>Sensor Jari Peace + Sinematik Transisi</title>
     <style>
-        /* --- Desain Tampilan Antarmuka --- */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
@@ -35,16 +34,41 @@
             left: 0;
             width: 100%;
             height: 100%;
-            transform: scaleX(-1); /* Efek cermin agar gerakan tangan natural */
+            transform: scaleX(-1);
             object-fit: cover;
         }
+        
+        /* TRANSISI SINEMATIK: Mengatur kehalusan perubahan blur, zoom, dan warna */
         video {
-            transition: filter 0.3s ease;
+            transition: filter 0.5s cubic-bezier(0.1, 0.8, 0.25, 1), transform 0.6s cubic-bezier(0.1, 0.8, 0.25, 1);
         }
-        /* Efek Blur Kamera saat sensor aktif */
+        
+        /* EFEK BLUR + AUTOMATIC ZOOM + CINEMATIC COLOR */
         .blur-effect {
-            filter: blur(35px);
+            filter: blur(40px) contrast(110%) saturate(85%);
+            transform: scaleX(-1) scale(1.15); /* Zoom in 15% tanpa merusak efek cermin */
         }
+
+        /* EFEK KILATAN FLASH PUTIH */
+        .flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .flash-active {
+            animation: sekilasFlash 0.2s ease-out;
+        }
+        @keyframes sekilasFlash {
+            0% { opacity: 0.85; }
+            100% { opacity: 0; }
+        }
+
         #status {
             margin-top: 20px;
             padding: 12px 25px;
@@ -58,38 +82,39 @@
             max-width: 90%;
         }
     </style>
-    <!-- Memuat dependensi AI MediaPipe secara sekuensial -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-    <h1>Sensor Kamera Gestur ✌️ + Musik</h1>
-    <p>Kamera otomatis buram dan memutar lagu Sal Priadi (00:25) saat jari membentuk Peace (✌️).</p>
+    <h1>Sensor Kamera ✌️ Sinematik</h1>
+    <p>Cobalah berpose! Fitur dilengkapi efek Slow Zoom, Kilatan Flash, dan Musik Otomatis.</p>
 
     <div class="container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="output_canvas"></canvas>
+        <!-- Lapisan Flash Putih -->
+        <div id="flash" class="flash-overlay"></div>
     </div>
 
     <div id="status">Menginisialisasi Kamera...</div>
 
-    <!-- Sumber Audio Musik Sal Priadi via GitHub Raw Link -->
     <audio id="laguBlur" loop>
         <source src="https://raw.githubusercontent.com/Alfinnnnn/FotoKitaBlur/master/FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3" type="audio/mp3">
     </audio>
 
-    <!-- Script Logika Inti Program (Terisolasi Aman) -->
     <script>
         const video = document.getElementById('webcam');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         const statusDiv = document.getElementById('status');
         const musik = document.getElementById('laguBlur');
+        const flashDiv = document.getElementById('flash');
 
-        // Menentukan resolusi internal canvas gambar
         canvasElement.width = 640;
         canvasElement.height = 480;
+        
+        let statusSebelumnya = false; // Melacak transisi untuk trigger flash
 
         function updateStatus(text, bgColor = '#161b22', textColor = '#c9d1d9') {
             statusDiv.innerText = text;
@@ -99,7 +124,6 @@
             else statusDiv.style.borderColor = '#30363d';
         }
 
-        // 1. Mengaktifkan Aliran Kamera (Webcam)
         function startWebcam() {
             updateStatus("Meminta izin kamera...", "#444d1e", "#ffff33");
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -109,101 +133,73 @@
                     video.addEventListener('loadeddata', loadHandsModel);
                 })
                 .catch((err) => {
-                    updateStatus("Izin Kamera Ditolak! Harap izinkan akses kamera di browser Anda.", "#491010", "#ff3333");
-                    console.error("Kamera ditolak:", err);
+                    updateStatus("Izin Kamera Ditolak!", "#491010", "#ff3333");
                 });
-            } else {
-                updateStatus("Browser Anda tidak mendukung akses webcam!", "#491010", "#ff3333");
             }
         }
 
-        // 2. Memuat Engine AI Deteksi Tangan
         function loadHandsModel() {
-            updateStatus("Kamera Aktif. Memuat Model AI (Mohon tunggu)...", "#1a1f3a", "#2f81f7");
-            
+            updateStatus("Kamera Aktif. Memuat Model AI...", "#1a1f3a", "#2f81f7");
             const hands = new Hands({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             });
-            
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7
-            });
-            
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
             hands.onResults(onResults);
             
             const cameraLoop = async () => {
-                if (!video.paused && video.currentTime > 0) {
-                    await hands.send({image: video});
-                }
+                if (!video.paused && video.currentTime > 0) { await hands.send({image: video}); }
                 window.requestAnimationFrame(cameraLoop);
             };
-            
             video.onplay = () => {
                 updateStatus("AI Siap! Klik layar 1x lalu tunjukkan gestur ✌️", "#1a3a1f", "#39d353");
                 cameraLoop();
             };
         }
 
-        // 3. Pemrosesan Visual & Logika Matematika Gestur Jari
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            
             let sedangPeaceSign = false;
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
-                
-                // Menggambar Garis Hijau & Titik Merah pada persendian jari
                 drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
                 drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
                 
-                // Tracking koordinat sumbu Y (Makin ke atas layar, nilai Y semakin mendekati 0)
-                const ujungTelunjuk = landmarks[8].y;
-                const sendiTelunjuk = landmarks[6].y;
-                const ujungTengah = landmarks[12].y;
-                const sendiTengah = landmarks[10].y;
-                const ujungManis = landmarks[16].y;
-                const sendiManis = landmarks[14].y;
-                const ujungKelingking = landmarks[20].y;
-                const sendiKelingking = landmarks[18].y;
-
-                // Aturan Gestur ✌️ (Peace): Telunjuk & Tengah lurus ke atas, Manis & Kelingking menekuk ke bawah
-                if (ujungTelunjuk < sendiTelunjuk && ujungTengah < sendiTengah && ujungManis > sendiManis && ujungKelingking > sendiKelingking) {
+                if (landmarks[8].y < landmarks[6].y && landmarks[12].y < landmarks[10].y && landmarks[16].y > landmarks[14].y && landmarks[20].y > landmarks[18].y) {
                     sedangPeaceSign = true;
                 }
             }
             
-            // 4. Trigger Pengaktifan Efek Blur dan Sinkronisasi Audio
             if (sedangPeaceSign) {
+                // TRIGGER FLASH: Jika frame sebelumnya normal dan frame sekarang terdeteksi ✌️
+                if (!statusSebelumnya) {
+                    flashDiv.classList.add('flash-active');
+                    setTimeout(() => flashDiv.classList.remove('flash-active'), 200);
+                }
+                
                 video.classList.add('blur-effect');
                 updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
                 
                 if (musik.paused) {
-                    if (musik.currentTime < 25) {
-                        musik.currentTime = 25; // Melompat ke menit 00:25
-                    }
-                    musik.play().catch(err => console.log("Menunggu interaksi klik pertama pengguna:", err));
+                    if (musik.currentTime < 25) { musik.currentTime = 25; }
+                    musik.play().catch(err => console.log(err));
                 }
             } else {
                 video.classList.remove('blur-effect');
-                
                 if (!musik.paused) {
                     musik.pause();
-                    musik.currentTime = 25; // Reset lagu kembali ke menit 00:25 saat jari hilang
+                    musik.currentTime = 25;
                 }
-
                 if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
                     updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
                 }
             }
+            
+            statusSebelumnya = sedangPeaceSign; // Simpan status frame ini untuk frame berikutnya
             canvasCtx.restore();
         }
 
-        // Jalankan program setelah seluruh DOM selesai dimuat
         window.addEventListener('DOMContentLoaded', startWebcam);
     </script>
 </body>
