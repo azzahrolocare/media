@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sensor Jari Peace + Sinematik Transisi</title>
+    <title>Sensor Jari Peace + Rekam Otomatis 30 Detik</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -38,18 +38,15 @@
             object-fit: cover;
         }
         
-        /* TRANSISI SINEMATIK: Mengatur kehalusan perubahan blur, zoom, dan warna */
         video {
-            transition: filter 0.5s cubic-bezier(0.1, 0.8, 0.25, 1), transform 0.6s cubic-bezier(0.1, 0.8, 0.25, 1);
+            transition: filter 0.5s ease, transform 0.6s ease;
         }
         
-        /* EFEK BLUR + AUTOMATIC ZOOM + CINEMATIC COLOR */
         .blur-effect {
             filter: blur(40px) contrast(110%) saturate(85%);
-            transform: scaleX(-1) scale(1.15); /* Zoom in 15% tanpa merusak efek cermin */
+            transform: scaleX(-1) scale(1.15); /* Efek Zoom */
         }
 
-        /* EFEK KILATAN FLASH PUTIH */
         .flash-overlay {
             position: absolute;
             top: 0;
@@ -67,6 +64,27 @@
         @keyframes sekilasFlash {
             0% { opacity: 0.85; }
             100% { opacity: 0; }
+        }
+
+        /* INDIKATOR REKAMAN */
+        #rec-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            z-index: 20;
+            display: none; /* Muncul hanya saat merekam */
+            animation: kedip 1s infinite;
+        }
+        @keyframes kedip {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
         }
 
         #status {
@@ -87,14 +105,15 @@
 </head>
 <body>
 
-    <h1>Sensor Kamera ✌️ Sinematik</h1>
-    <p>Cobalah berpose! Fitur dilengkapi efek Slow Zoom, Kilatan Flash, dan Musik Otomatis.</p>
+    <h1>Sensor Kamera ✌️ + Autorecord 30s</h1>
+    <p>Angkat jari ✌️ untuk memicu transisi blur, musik, dan rekam video selama 30 detik.</p>
 
     <div class="container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="output_canvas"></canvas>
-        <!-- Lapisan Flash Putih -->
         <div id="flash" class="flash-overlay"></div>
+        <!-- Teks durasi di pojok kanan atas -->
+        <div id="rec-indicator">🔴 REC <span id="timer">30</span>s</div>
     </div>
 
     <div id="status">Menginisialisasi Kamera...</div>
@@ -110,32 +129,73 @@
         const statusDiv = document.getElementById('status');
         const musik = document.getElementById('laguBlur');
         const flashDiv = document.getElementById('flash');
+        const recIndicator = document.getElementById('rec-indicator');
+        const timerSpan = document.getElementById('timer');
 
         canvasElement.width = 640;
         canvasElement.height = 480;
         
-        let statusSebelumnya = false; // Melacak transisi untuk trigger flash
+        let statusSebelumnya = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+        let countdownInterval;
+        let sisaWaktu = 30;
 
         function updateStatus(text, bgColor = '#161b22', textColor = '#c9d1d9') {
             statusDiv.innerText = text;
             statusDiv.style.backgroundColor = bgColor;
             statusDiv.style.color = textColor;
-            if(text.includes('AKTIF')) statusDiv.style.borderColor = textColor;
+            if(text.includes('AKTIF') || text.includes('MEREKAM')) statusDiv.style.borderColor = textColor;
             else statusDiv.style.borderColor = '#30363d';
         }
 
         function startWebcam() {
             updateStatus("Meminta izin kamera...", "#444d1e", "#ffff33");
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" } })
+                navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: true })
                 .then((stream) => {
                     video.srcObject = stream;
                     video.addEventListener('loadeddata', loadHandsModel);
+                    
+                    // Siapkan sistem perekam gabungan dari kamera
+                    setupRecorder(stream);
                 })
                 .catch((err) => {
                     updateStatus("Izin Kamera Ditolak!", "#491010", "#ff3333");
                 });
             }
+        }
+
+        function setupRecorder(stream) {
+            // Kita rekam tampilan gabungan (Canvas yang ada kerangka/efeknya)
+            const streamKanvas = canvasElement.captureStream(30); 
+            
+            // Masukkan audio mikrofon agar suara sekitar masuk (atau bisa dilewati jika hanya butuh visual)
+            if(stream.getAudioTracks().length > 0) {
+                streamKanvas.addTrack(stream.getAudioTracks()[0]);
+            }
+
+            mediaRecorder = new MediaRecorder(streamKanvas, { mimeType: 'video/webm;codecs=vp9' });
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                // Proses pembuatan file video download setelah berhenti
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                recordedChunks = [];
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'FotoKitaBlur_30s.webm';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus("Video berhasil diunduh! Selesai.", "#1a3a1f", "#39d353");
+            };
         }
 
         function loadHandsModel() {
@@ -147,6 +207,8 @@
             hands.onResults(onResults);
             
             const cameraLoop = async () => {
+                // Menggambar video asli ke dalam kanvas agar ikut terekam oleh MediaRecorder
+                canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
                 if (!video.paused && video.currentTime > 0) { await hands.send({image: video}); }
                 window.requestAnimationFrame(cameraLoop);
             };
@@ -156,13 +218,50 @@
             };
         }
 
+        function startMerekamVideo() {
+            if(isRecording) return;
+            isRecording = true;
+            sisaWaktu = 30;
+            timerSpan.innerText = sisaWaktu;
+            recIndicator.style.display = 'block';
+            
+            recordedChunks = [];
+            mediaRecorder.start();
+
+            countdownInterval = setInterval(() => {
+                sisaWaktu--;
+                timerSpan.innerText = sisaWaktu;
+                updateStatus(`MEREKAM TRANSISI: Sisa ${sisaWaktu} detik...`, "#491010", "#ff3333");
+                
+                if(sisaWaktu <= 0) {
+                    stopMerekamVideo();
+                }
+            }, 1000);
+        }
+
+        function stopMerekamVideo() {
+            if(!isRecording) return;
+            isRecording = false;
+            clearInterval(countdownInterval);
+            recIndicator.style.display = 'none';
+            mediaRecorder.stop();
+            
+            // Matikan musik dan hilangkan blur
+            video.classList.remove('blur-effect');
+            if (!musik.paused) {
+                musik.pause();
+                musik.currentTime = 25;
+            }
+        }
+
         function onResults(results) {
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            // Frame digambar langsung di cameraLoop, fungsi ini hanya mengandalkan deteksi titik koordinat
             let sedangPeaceSign = false;
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
+                
+                // Gambar struktur jari (tetap tampil di video hasil download)
                 drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
                 drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
                 
@@ -171,33 +270,40 @@
                 }
             }
             
-            if (sedangPeaceSign) {
-                // TRIGGER FLASH: Jika frame sebelumnya normal dan frame sekarang terdeteksi ✌️
+            // JIKA MEREKAM, KUNCI EFEK BLUR DAN MUSIK HINGGA SELESAI 30 DETIK
+            if (isRecording) {
+                video.classList.add('blur-effect');
+                return;
+            }
+
+            if (sedangPeaceSign && !isRecording) {
+                // Efek Kilatan Lampu Flash
                 if (!statusSebelumnya) {
                     flashDiv.classList.add('flash-active');
                     setTimeout(() => flashDiv.classList.remove('flash-active'), 200);
                 }
                 
                 video.classList.add('blur-effect');
-                updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
                 
                 if (musik.paused) {
                     if (musik.currentTime < 25) { musik.currentTime = 25; }
                     musik.play().catch(err => console.log(err));
                 }
-            } else {
+
+                // MULAI REKAM SEPANJANG 30 DETIK
+                startMerekamVideo();
+            } else if (!sedangPeaceSign && !isRecording) {
                 video.classList.remove('blur-effect');
                 if (!musik.paused) {
                     musik.pause();
                     musik.currentTime = 25;
                 }
-                if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
-                    updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
+                if(statusDiv.innerText.includes('MEREKAM') || statusDiv.innerText.includes('AI Siap') || statusDiv.innerText.includes('SELESAl')) {
+                    updateStatus("Status: Normal (Arahkan ✌️ untuk rekam 30 detik)", "#161b22", "#c9d1d9");
                 }
             }
             
-            statusSebelumnya = sedangPeaceSign; // Simpan status frame ini untuk frame berikutnya
-            canvasCtx.restore();
+            statusSebelumnya = sedangPeaceSign;
         }
 
         window.addEventListener('DOMContentLoaded', startWebcam);
