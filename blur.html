@@ -1,115 +1,203 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sensor Jari Peace + Musik Detik 25 (Sal Priadi)</title>
-<style>
-body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;display:flex;flex-direction:column;align-items:center;background-color:#0d1117;color:#c9d1d9;margin:0;padding:20px}
-h1{margin-bottom:5px;color:#2f81f7;text-align:center}
-p{color:#8b949e;margin-bottom:20px;text-align:center}
-.container{position:relative;width:640px;height:480px;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.8);background-color:#000}
-video,canvas{position:absolute;top:0;left:0;width:640px;height:480px;transform:scaleX(-1);object-fit:cover}
-video{transition:filter 0.3s ease}
-.blur-effect{filter:blur(35px)}
-#status{margin-top:20px;padding:12px 25px;border-radius:25px;font-size:1.1rem;font-weight:bold;background-color:#161b22;border:1px solid #30363d;transition:all 0.3s ease;text-align:center;max-width:80%}
-</style>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Jari Peace + Musik Detik 25 (Sal Priadi)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 5px; color: #2f81f7; text-align: center; }
+        p { color: #8b949e; margin-bottom: 20px; text-align: center; }
+        
+        .container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            background-color: #000;
+        }
+        video, canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 640px;
+            height: 480px;
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+        video {
+            transition: filter 0.3s ease;
+        }
+        .blur-effect {
+            filter: blur(35px);
+        }
+        #status {
+            margin-top: 20px;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            transition: all 0.3s ease;
+            text-align: center;
+            max-width: 80%;
+        }
+    </style>
+    <!-- Memuat Library Eksternal di Head agar Aman -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-<h1>Sensor Kamera Gestur ✌️ + Musik (Reff)</h1>
-<p>Kamera blur dan musik Sal Priadi berputar dari menit 00:25. Turunkan jari untuk reset musik.</p>
+    <h1>Sensor Kamera Gestur ✌️ + Musik</h1>
+    <p>Kamera otomatis buram dan memutar lagu Sal Priadi (00:25) saat jari membentuk Peace (✌️).</p>
 
-<div class="container">
-    <video id="webcam" autoplay playsinline></video>
-    <canvas id="output_canvas"></canvas>
-</div>
+    <div class="container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="output_canvas"></canvas>
+    </div>
 
-<div id="status">Menginisialisasi Kamera...</div>
+    <div id="status">Menginisialisasi Kamera...</div>
 
-<!-- Elemen Audio dengan tautan HTTPS yang sudah diperbaiki -->
-<audio id="laguBlur" loop>
-    <source src="https://raw.githubusercontent.com/Alfinnnnn/FotoKitaBlur/master/FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3" type="audio/mp3">
-    Browser kamu tidak mendukung pemutaran audio.
-</audio>
+    <!-- Elemen Audio Musik -->
+    <audio id="laguBlur" loop>
+        <source src="https://raw.githubusercontent.com/Alfinnnnn/FotoKitaBlur/master/FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3" type="audio/mp3">
+    </audio>
 
-<script>
-const video = document.getElementById('webcam');
-const canvasElement = document.getElementById('output_canvas');
-const canvasCtx = canvasElement.getContext('2d');
-const statusDiv = document.getElementById('status');
-const musik = document.getElementById('laguBlur');
+    <!-- SEMUA KODE DI MASUKKAN KE DALAM SINI AGAR TIDAK BOCOR KE LAYAR -->
+    <script>
+        const video = document.getElementById('webcam');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        const musik = document.getElementById('laguBlur');
 
-canvasElement.width = 640;
-canvasElement.height = 480;
+        canvasElement.width = 640;
+        canvasElement.height = 480;
 
-function updateStatus(text, bgColor = '#161b22', textColor = '#c9d1d9') {
-    statusDiv.innerText = text;
-    statusDiv.style.backgroundColor = bgColor;
-    statusDiv.style.color = textColor;
-    if(text.includes('BLUR')) statusDiv.style.borderColor = textColor;
-    else statusDiv.style.borderColor = '#30363d';
-}
-
-// 1. Meminta Izin Kamera
-function startWebcam() {
-    updateStatus("Meminta izin kamera...", "#444d1e", "#ffff33");
-    
-    if (!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
-        .then((stream) => {
-            video.srcObject = stream;
-            video.addEventListener('loadeddata', loadHandsModel);
-        })
-        .catch((err) => {
-            updateStatus("Izin Kamera Ditolak! Ubah setelan privasi browser.", "#491010", "#ff3333");
-            console.error("Kamera Error:", err);
-        });
-    } else {
-        updateStatus("Browser tidak mendukung webcam!", "#491010", "#ff3333");
-    }
-}
-
-// 2. Memuat Model AI Deteksi Tangan
-function loadHandsModel() {
-    updateStatus("Kamera Aktif. Memuat Model AI...", "#1a1f3a", "#2f81f7");
-    
-    const hands = new Hands({
-        locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        function updateStatus(text, bgColor = '#161b22', textColor = '#c9d1d9') {
+            statusDiv.innerText = text;
+            statusDiv.style.backgroundColor = bgColor;
+            statusDiv.style.color = textColor;
+            if(text.includes('BLUR')) statusDiv.style.borderColor = textColor;
+            else statusDiv.style.borderColor = '#30363d';
         }
-    });
-    
-    hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.7
-    });
-    
-    hands.onResults(onResults);
-    
-    const cameraLoop = async () => {
-        if (!video.paused && video.currentTime > 0) {
-            await hands.send({image: video});
-        }
-        window.requestAnimationFrame(cameraLoop);
-    };
-    
-    video.onplay = () => {
-        updateStatus("AI Siap. Klik layar 1x lalu angkat tanganmu ✌️", "#1a3a1f", "#39d353");
-        cameraLoop();
-    };
-}
 
-// 3. Memproses Hasil Deteksi per Frame
-function onResults(results) {
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    
-    let sedangPeaceSign = false;
+        // 1. Jalankan Kamera
+        function startWebcam() {
+            updateStatus("Meminta izin kamera...", "#444d1e", "#ffff33");
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+                .then((stream) => {
+                    video.srcObject = stream;
+                    video.addEventListener('loadeddata', loadHandsModel);
+                })
+                .catch((err) => {
+                    updateStatus("Izin Kamera Ditolak! Cek setelan browser.", "#491010", "#ff3333");
+                });
+            } else {
+                updateStatus("Browser tidak mendukung webcam!", "#491010", "#ff3333");
+            }
+        }
+
+        // 2. Load AI
+        function loadHandsModel() {
+            updateStatus("Kamera Aktif. Memuat Model AI...", "#1a1f3a", "#2f81f7");
+            const hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+            
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+            
+            hands.onResults(onResults);
+            
+            const cameraLoop = async () => {
+                if (!video.paused && video.currentTime > 0) {
+                    await hands.send({image: video});
+                }
+                window.requestAnimationFrame(cameraLoop);
+            };
+            
+            video.onplay = () => {
+                updateStatus("AI Siap. Klik layar 1x lalu angkat tanganmu ✌️", "#1a3a1f", "#39d353");
+                cameraLoop();
+            };
+        }
+
+        // 3. Logika Deteksi & Efek Musik/Blur
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            let sedangPeaceSign = false;
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
+                drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
+                
+                const ujungTelunjuk = landmarks[8].y;
+                const sendiTelunjuk = landmarks[6].y;
+                const ujungTengah = landmarks[12].y;
+                const sendiTengah = landmarks[10].y;
+                const ujungManis = landmarks[16].y;
+                const sendiManis = landmarks[14].y;
+                const ujungKelingking = landmarks[20].y;
+                const sendiKelingking = landmarks[18].y;
+
+                if (ujungTelunjuk < sendiTelunjuk && ujungTengah < sendiTengah && ujungManis > sendiManis && ujungKelingking > sendiKelingking) {
+                    sedangPeaceSign = true;
+                }
+            }
+            
+            if (sedangPeaceSign) {
+                video.classList.add('blur-effect');
+                updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
+                
+                if (musik.paused) {
+                    if (musik.currentTime < 25) {
+                        musik.currentTime = 25; 
+                    }
+                    musik.play().catch(err => console.log(err));
+                }
+            } else {
+                video.classList.remove('blur-effect');
+                
+                if (!musik.paused) {
+                    musik.pause();
+                    musik.currentTime = 25; 
+                }
+
+                if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
+                    updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
+                }
+            }
+            canvasCtx.restore();
+        }
+
+        // Jalankan sistem
+        startWebcam();
+    </script>
+</body>
+</html>    let sedangPeaceSign = false;
     
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
