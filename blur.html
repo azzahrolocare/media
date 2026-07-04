@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sensor Jari Peace + Musik Detik 25 (Sal Priadi)</title>
     <style>
+        /* --- Desain Tampilan Antarmuka --- */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
@@ -15,13 +16,14 @@
             margin: 0;
             padding: 20px;
         }
-        h1 { margin-bottom: 5px; color: #2f81f7; text-align: center; }
-        p { color: #8b949e; margin-bottom: 20px; text-align: center; }
+        h1 { margin-bottom: 5px; color: #2f81f7; text-align: center; font-size: 1.8rem; }
+        p { color: #8b949e; margin-bottom: 20px; text-align: center; font-size: 1rem; }
         
         .container {
             position: relative;
-            width: 640px;
-            height: 480px;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4/3;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
@@ -31,14 +33,15 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 640px;
-            height: 480px;
-            transform: scaleX(-1);
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); /* Efek cermin agar gerakan tangan natural */
             object-fit: cover;
         }
         video {
             transition: filter 0.3s ease;
         }
+        /* Efek Blur Kamera saat sensor aktif */
         .blur-effect {
             filter: blur(35px);
         }
@@ -46,16 +49,16 @@
             margin-top: 20px;
             padding: 12px 25px;
             border-radius: 25px;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: bold;
             background-color: #161b22;
             border: 1px solid #30363d;
             transition: all 0.3s ease;
             text-align: center;
-            max-width: 80%;
+            max-width: 90%;
         }
     </style>
-    <!-- Memuat Library Eksternal di Head agar Aman -->
+    <!-- Memuat dependensi AI MediaPipe secara sekuensial -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
@@ -71,12 +74,12 @@
 
     <div id="status">Menginisialisasi Kamera...</div>
 
-    <!-- Elemen Audio Musik -->
+    <!-- Sumber Audio Musik Sal Priadi via GitHub Raw Link -->
     <audio id="laguBlur" loop>
         <source src="https://raw.githubusercontent.com/Alfinnnnn/FotoKitaBlur/master/FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3" type="audio/mp3">
     </audio>
 
-    <!-- SEMUA KODE DI MASUKKAN KE DALAM SINI AGAR TIDAK BOCOR KE LAYAR -->
+    <!-- Script Logika Inti Program (Terisolasi Aman) -->
     <script>
         const video = document.getElementById('webcam');
         const canvasElement = document.getElementById('output_canvas');
@@ -84,6 +87,7 @@
         const statusDiv = document.getElementById('status');
         const musik = document.getElementById('laguBlur');
 
+        // Menentukan resolusi internal canvas gambar
         canvasElement.width = 640;
         canvasElement.height = 480;
 
@@ -91,30 +95,32 @@
             statusDiv.innerText = text;
             statusDiv.style.backgroundColor = bgColor;
             statusDiv.style.color = textColor;
-            if(text.includes('BLUR')) statusDiv.style.borderColor = textColor;
+            if(text.includes('AKTIF')) statusDiv.style.borderColor = textColor;
             else statusDiv.style.borderColor = '#30363d';
         }
 
-        // 1. Jalankan Kamera
+        // 1. Mengaktifkan Aliran Kamera (Webcam)
         function startWebcam() {
             updateStatus("Meminta izin kamera...", "#444d1e", "#ffff33");
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+                navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" } })
                 .then((stream) => {
                     video.srcObject = stream;
                     video.addEventListener('loadeddata', loadHandsModel);
                 })
                 .catch((err) => {
-                    updateStatus("Izin Kamera Ditolak! Cek setelan browser.", "#491010", "#ff3333");
+                    updateStatus("Izin Kamera Ditolak! Harap izinkan akses kamera di browser Anda.", "#491010", "#ff3333");
+                    console.error("Kamera ditolak:", err);
                 });
             } else {
-                updateStatus("Browser tidak mendukung webcam!", "#491010", "#ff3333");
+                updateStatus("Browser Anda tidak mendukung akses webcam!", "#491010", "#ff3333");
             }
         }
 
-        // 2. Load AI
+        // 2. Memuat Engine AI Deteksi Tangan
         function loadHandsModel() {
-            updateStatus("Kamera Aktif. Memuat Model AI...", "#1a1f3a", "#2f81f7");
+            updateStatus("Kamera Aktif. Memuat Model AI (Mohon tunggu)...", "#1a1f3a", "#2f81f7");
+            
             const hands = new Hands({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             });
@@ -136,12 +142,12 @@
             };
             
             video.onplay = () => {
-                updateStatus("AI Siap. Klik layar 1x lalu angkat tanganmu ✌️", "#1a3a1f", "#39d353");
+                updateStatus("AI Siap! Klik layar 1x lalu tunjukkan gestur ✌️", "#1a3a1f", "#39d353");
                 cameraLoop();
             };
         }
 
-        // 3. Logika Deteksi & Efek Musik/Blur
+        // 3. Pemrosesan Visual & Logika Matematika Gestur Jari
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -151,9 +157,11 @@
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
                 
+                // Menggambar Garis Hijau & Titik Merah pada persendian jari
                 drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
                 drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
                 
+                // Tracking koordinat sumbu Y (Makin ke atas layar, nilai Y semakin mendekati 0)
                 const ujungTelunjuk = landmarks[8].y;
                 const sendiTelunjuk = landmarks[6].y;
                 const ujungTengah = landmarks[12].y;
@@ -163,27 +171,29 @@
                 const ujungKelingking = landmarks[20].y;
                 const sendiKelingking = landmarks[18].y;
 
+                // Aturan Gestur ✌️ (Peace): Telunjuk & Tengah lurus ke atas, Manis & Kelingking menekuk ke bawah
                 if (ujungTelunjuk < sendiTelunjuk && ujungTengah < sendiTengah && ujungManis > sendiManis && ujungKelingking > sendiKelingking) {
                     sedangPeaceSign = true;
                 }
             }
             
+            // 4. Trigger Pengaktifan Efek Blur dan Sinkronisasi Audio
             if (sedangPeaceSign) {
                 video.classList.add('blur-effect');
                 updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
                 
                 if (musik.paused) {
                     if (musik.currentTime < 25) {
-                        musik.currentTime = 25; 
+                        musik.currentTime = 25; // Melompat ke menit 00:25
                     }
-                    musik.play().catch(err => console.log(err));
+                    musik.play().catch(err => console.log("Menunggu interaksi klik pertama pengguna:", err));
                 }
             } else {
                 video.classList.remove('blur-effect');
                 
                 if (!musik.paused) {
                     musik.pause();
-                    musik.currentTime = 25; 
+                    musik.currentTime = 25; // Reset lagu kembali ke menit 00:25 saat jari hilang
                 }
 
                 if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
@@ -193,183 +203,8 @@
             canvasCtx.restore();
         }
 
-        // Jalankan sistem
-        startWebcam();
+        // Jalankan program setelah seluruh DOM selesai dimuat
+        window.addEventListener('DOMContentLoaded', startWebcam);
     </script>
-</body>
-</html>    let sedangPeaceSign = false;
-    
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-        
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
-        drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
-        
-        const ujungTelunjuk = landmarks[8].y;
-        const sendiTelunjuk = landmarks[6].y;
-        const ujungTengah = landmarks[12].y;
-        const sendiTengah = landmarks[10].y;
-        const ujungManis = landmarks[16].y;
-        const sendiManis = landmarks[14].y;
-        const ujungKelingking = landmarks[20].y;
-        const sendiKelingking = landmarks[18].y;
-
-        if (ujungTelunjuk < sendiTelunjuk && 
-            ujungTengah < sendiTengah && 
-            ujungManis > sendiManis && 
-            ujungKelingking > sendiKelingking) {
-            sedangPeaceSign = true;
-        }
-    }
-    
-    // 4. Efek Blur + Kontrol Musik (Mulai dari 00:25 & Reset waktu)
-    if (sedangPeaceSign) {
-        video.classList.add('blur-effect');
-        updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
-        
-        if (musik.paused) {
-            // JIKA musik baru mau diputar, set waktunya langsung lompat ke detik 25
-            if (musik.currentTime < 25) {
-                musik.currentTime = 25; 
-            }
-            musik.play().catch(err => {
-                console.log("Klik halaman web terlebih dahulu agar audio diizinkan browser:", err);
-            });
-        }
-    } else {
-        video.classList.remove('blur-effect');
-        
-        // JIKA jari hilang/tidak membentuk ✌️, musik berhenti dan RESET ke detik 25
-        if (!musik.paused) {
-            musik.pause();
-            musik.currentTime = 25; 
-        }
-
-        if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
-            updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
-        }
-    }
-    
-    canvasCtx.restore();
-}
-
-startWebcam();
-</script>
-
-</body>
-</html>    let sedangPeaceSign = false;
-    
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-        
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
-        drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
-        
-        const ujungTelunjuk = landmarks[8].y;
-        const sendiTelunjuk = landmarks[6].y;
-        const ujungTengah = landmarks[12].y;
-        const sendiTengah = landmarks[10].y;
-        const ujungManis = landmarks[16].y;
-        const sendiManis = landmarks[14].y;
-        const ujungKelingking = landmarks[20].y;
-        const sendiKelingking = landmarks[18].y;
-
-        if (ujungTelunjuk < sendiTelunjuk && 
-            ujungTengah < sendiTengah && 
-            ujungManis > sendiManis && 
-            ujungKelingking > sendiKelingking) {
-            sedangPeaceSign = true;
-        }
-    }
-    
-    // 4. Efek Blur + Kontrol Musik
-    if (sedangPeaceSign) {
-        video.classList.add('blur-effect');
-        updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
-        
-        // Putar musik jika sedang tidak berputar
-        if (musik.paused) {
-            musik.play().catch(err => {
-                console.log("Menunggu interaksi user untuk memutar audio:", err);
-            });
-        }
-    } else {
-        video.classList.remove('blur-effect');
-        
-        // Pause musik jika tangan diturunkan
-        if (!musik.paused) {
-            musik.pause();
-        }
-
-        if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
-            updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
-        }
-    }
-    
-    canvasCtx.restore();
-}
-
-startWebcam();
-</script>
-
-</body>
-</html>}
-
-// 3. Fungsi: Memproses Hasil Deteksi per Frame
-function onResults(results) {
-    // Bersihkan kanvas
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    
-    let sedangPeaceSign = false;
-    
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-        
-        // Gambar Kerangka Tangan (Hijau) dan Titik Sendi (Merah)
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
-        drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
-        
-        // Logika Deteksi Gestur Peace Sign ✌️
-        // Koordinat MediaPipe: Y kecil = makin ke atas
-        const ujungTelunjuk = landmarks[8].y;
-        const sendiTelunjuk = landmarks[6].y;
-        const ujungTengah = landmarks[12].y;
-        const sendiTengah = landmarks[10].y;
-        const ujungManis = landmarks[16].y;
-        const sendiManis = landmarks[14].y;
-        const ujungKelingking = landmarks[20].y;
-        const sendiKelingking = landmarks[18].y;
-
-        // Syarat Gestur Peace: 
-        // Telunjuk & Tengah LURUS KE ATAS (ujung < sendi)
-        // Manis & Kelingking DITEKUK KE BAWAH (ujung > sendi)
-        if (ujungTelunjuk < sendiTelunjuk && 
-            ujungTengah < sendiTengah && 
-            ujungManis > sendiManis && 
-            ujungKelingking > sendiKelingking) {
-            sedangPeaceSign = true;
-        }
-    }
-    
-    // 4. Fungsi: Terapkan Efek Blur
-    if (sedangPeaceSign) {
-        video.classList.add('blur-effect');
-        updateStatus("SENSOR AKTIF: Kamera Buram! ✌️", "#491010", "#ff3333");
-    } else {
-        video.classList.remove('blur-effect');
-        // Hanya update status jika AI sudah siap, untuk menghindari konflik visual
-        if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
-            updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
-        }
-    }
-    
-    canvasCtx.restore();
-}
-
-// Mulai jalankan program: Kamera duluan!
-startWebcam();
-</script>
-
 </body>
 </html>
