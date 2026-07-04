@@ -3,32 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sensor Jari Peace (100% Manjur)</title>
+<title>Sensor Jari Peace + Musik (Sal Priadi)</title>
 <style>
-/* --- Gaya Visual --- */
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;display:flex;flex-direction:column;align-items:center;background-color:#0d1117;color:#c9d1d9;margin:0;padding:20px}
 h1{margin-bottom:5px;color:#2f81f7;text-align:center}
 p{color:#8b949e;margin-bottom:20px;text-align:center}
 .container{position:relative;width:640px;height:480px;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.8);background-color:#000}
 video,canvas{position:absolute;top:0;left:0;width:640px;height:480px;transform:scaleX(-1);object-fit:cover}
 video{transition:filter 0.3s ease}
-/* Efek Blur saat Gestur Peace ✌️ Terdeteksi */
 .blur-effect{filter:blur(35px)}
 #status{margin-top:20px;padding:12px 25px;border-radius:25px;font-size:1.1rem;font-weight:bold;background-color:#161b22;border:1px solid #30363d;transition:all 0.3s ease;text-align:center;max-width:80%}
 </style>
-<!-- 
-    BAGIAN PENTING:
-    Kita memuat pustaka MediaPipe secara "In-line".
-    Ini dikompresi agar muat dalam satu file.
-    Garis-garis panjang di bawah adalah kunci "manjur 100%".
--->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-<h1>Sensor Kamera Gestur ✌️</h1>
-<p>Kamera akan otomatis buram saat jari membentuk Peace (✌️).</p>
+<h1>Sensor Kamera Gestur ✌️ + Musik</h1>
+<p>Kamera akan otomatis buram dan memutar lagu Sal Priadi saat jari membentuk Peace (✌️).</p>
 
 <div class="container">
     <video id="webcam" autoplay playsinline></video>
@@ -37,18 +29,22 @@ video{transition:filter 0.3s ease}
 
 <div id="status">Menginisialisasi Kamera...</div>
 
+<!-- Elemen Audio untuk memutar lagu -->
+<audio id="laguBlur" loop>
+    <source src="https://raw.githubusercontent.com/Alfinnnnn/FotoKitaBlur/master/FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3" type="audio/mp3">
+    Browser kamu tidak mendukung pemutaran audio.
+</audio>
+
 <script>
-/* --- Logika Program --- */
 const video = document.getElementById('webcam');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
 const statusDiv = document.getElementById('status');
+const musik = document.getElementById('laguBlur');
 
-// Atur ukuran kanvas
 canvasElement.width = 640;
 canvasElement.height = 480;
 
-// Update status visual
 function updateStatus(text, bgColor = '#161b22', textColor = '#c9d1d9') {
     statusDiv.innerText = text;
     statusDiv.style.backgroundColor = bgColor;
@@ -57,11 +53,10 @@ function updateStatus(text, bgColor = '#161b22', textColor = '#c9d1d9') {
     else statusDiv.style.borderColor = '#30363d';
 }
 
-// 1. Fungsi Utama: Meminta Izin Kamera
+// 1. Meminta Izin Kamera
 function startWebcam() {
     updateStatus("Meminta izin kamera...", "#444d1e", "#ffff33");
     
-    // Periksa apakah browser mendukung kamera
     if (!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
         navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
         .then((stream) => {
@@ -77,7 +72,7 @@ function startWebcam() {
     }
 }
 
-// 2. Fungsi: Memuat Model AI Deteksi Tangan
+// 2. Memuat Model AI Deteksi Tangan
 function loadHandsModel() {
     updateStatus("Kamera Aktif. Memuat Model AI (Bisa butuh 10-30 detik)...", "#1a1f3a", "#2f81f7");
     
@@ -96,7 +91,6 @@ function loadHandsModel() {
     
     hands.onResults(onResults);
     
-    // Mengatur siklus deteksi pada frame video
     const cameraLoop = async () => {
         if (!video.paused && video.currentTime > 0) {
             await hands.send({image: video});
@@ -104,12 +98,74 @@ function loadHandsModel() {
         window.requestAnimationFrame(cameraLoop);
     };
     
-    // Menunggu sedikit sebelum memulai deteksi untuk kestabilan
     video.onplay = () => {
         updateStatus("AI Siap. Angkat tanganmu ✌️", "#1a3a1f", "#39d353");
         cameraLoop();
     };
 }
+
+// 3. Memproses Hasil Deteksi per Frame
+function onResults(results) {
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    let sedangPeaceSign = false;
+    
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#39d353', lineWidth: 4});
+        drawLandmarks(canvasCtx, landmarks, {color: '#ff3333', lineWidth: 1, radius: 4});
+        
+        const ujungTelunjuk = landmarks[8].y;
+        const sendiTelunjuk = landmarks[6].y;
+        const ujungTengah = landmarks[12].y;
+        const sendiTengah = landmarks[10].y;
+        const ujungManis = landmarks[16].y;
+        const sendiManis = landmarks[14].y;
+        const ujungKelingking = landmarks[20].y;
+        const sendiKelingking = landmarks[18].y;
+
+        if (ujungTelunjuk < sendiTelunjuk && 
+            ujungTengah < sendiTengah && 
+            ujungManis > sendiManis && 
+            ujungKelingking > sendiKelingking) {
+            sedangPeaceSign = true;
+        }
+    }
+    
+    // 4. Efek Blur + Kontrol Musik
+    if (sedangPeaceSign) {
+        video.classList.add('blur-effect');
+        updateStatus("SENSOR AKTIF: Foto Kita Blur ♪ ✌️", "#491010", "#ff3333");
+        
+        // Putar musik jika sedang tidak berputar
+        if (musik.paused) {
+            musik.play().catch(err => {
+                console.log("Menunggu interaksi user untuk memutar audio:", err);
+            });
+        }
+    } else {
+        video.classList.remove('blur-effect');
+        
+        // Pause musik jika tangan diturunkan
+        if (!musik.paused) {
+            musik.pause();
+        }
+
+        if(statusDiv.innerText.includes('SENSOR') || statusDiv.innerText.includes('AI Siap')) {
+            updateStatus("Status: Normal (Deteksi Tangan Aktif)", "#161b22", "#c9d1d9");
+        }
+    }
+    
+    canvasCtx.restore();
+}
+
+startWebcam();
+</script>
+
+</body>
+</html>}
 
 // 3. Fungsi: Memproses Hasil Deteksi per Frame
 function onResults(results) {
